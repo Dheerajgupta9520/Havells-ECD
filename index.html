@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Engineering Control Dashboard · Plant 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E2233;
+    --mid:#456079;
+    --line:#D6DDE4;
+    --paper:#EDF0F3;
+    --card:#FFFFFF;
+    --accent:#FF6A13;
+    --run:#16A34A;   --run-t:#0F7A37;
+    --stop:#D92D20;  --stop-t:#B42318;
+    --bd:#F2B705;    --bd-t:#8A6A00;
+    --pm:#F08A1D;    --pm-t:#B45309;
+    --rail:64px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:var(--paper);
+    background-image:linear-gradient(to bottom, rgba(14,34,51,.045) 1px, transparent 1px);
+    background-size:100% 40px;
+    color:var(--ink);
+    font-family:'IBM Plex Sans','Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:13px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'IBM Plex Mono','Consolas',monospace;font-variant-numeric:tabular-nums;}
+  .lbl{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--mid);}
+  button{font-family:inherit;}
+  a{color:inherit;}
+
+  /* ============ TOP INSTRUMENT BAR ============ */
+  .topbar{
+    position:sticky;top:0;z-index:60;
+    background:#fff;border-bottom:2px solid var(--ink);
+    display:flex;align-items:center;justify-content:space-between;gap:18px;
+    padding:9px 18px;
+  }
+  .tb-left{display:flex;align-items:center;gap:12px;min-width:0;}
+  .mark{width:38px;height:38px;flex:none;}
+  .tb-title h1{
+    margin:0;font-family:'Archivo',sans-serif;font-weight:800;font-size:19px;
+    letter-spacing:.045em;text-transform:uppercase;line-height:1.05;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .tb-title p{margin:2px 0 0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.34em;text-transform:uppercase;color:var(--accent);}
+  .tb-right{display:flex;align-items:center;gap:10px;}
+  .chip{
+    display:flex;align-items:center;gap:8px;padding:6px 11px;
+    border:1px solid var(--line);border-radius:2px;background:#F7F9FB;
+  }
+  .chip .lbl{display:block;}
+  .chip strong{display:block;font-family:'Archivo',sans-serif;font-size:12px;letter-spacing:.09em;}
+  .chip svg{width:18px;height:18px;color:var(--mid);}
+  .clock{display:flex;align-items:center;gap:8px;padding:5px 11px;border-left:1px solid var(--line);border-right:1px solid var(--line);}
+  .clock svg{width:17px;height:17px;color:var(--mid);}
+  .clock .cdate{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.11em;color:var(--mid);text-transform:uppercase;}
+  .clock .ctime{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;letter-spacing:.02em;line-height:1;}
+  .online{display:flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--run-t);}
+  .pulse{width:9px;height:9px;border-radius:50%;background:var(--run);position:relative;}
+  .pulse::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--run);animation:ring 1.9s ease-out infinite;}
+  @keyframes ring{0%{transform:scale(.5);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+
+  /* ============ RAIL ============ */
+  .rail{
+    position:fixed;left:0;top:61px;bottom:0;width:var(--rail);z-index:50;
+    background:var(--ink);border-right:2px solid var(--ink);
+    display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 0;
+  }
+  .rail button{
+    width:46px;height:44px;border:0;background:transparent;color:#9DB2C4;border-radius:2px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;
+    transition:background .18s ease,color .18s ease,transform .18s ease;
+  }
+  .rail button svg{width:18px;height:18px;}
+  .rail button span{font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:.1em;}
+  .rail button:hover{background:#1B3A54;color:#fff;transform:translateX(2px);}
+  .rail button.active{background:var(--accent);color:#fff;}
+  .rail button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  .shell{margin-left:var(--rail);padding:18px 18px 40px;}
+  .wrap{max-width:1560px;margin:0 auto;}
+
+  /* ============ SECTION HEADS (DIN drawing sheet) ============ */
+  .sec-head{display:flex;align-items:center;gap:12px;margin:26px 0 12px;}
+  .sec-num{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.12em;}
+  .sec-head h2{margin:0;font-family:'Archivo',sans-serif;font-size:13px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;}
+  .sec-rule{flex:1;height:1px;background:var(--line);}
+  .sec-meta{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--mid);text-transform:uppercase;}
+
+  /* ============ CATEGORY MODULES ============ */
+  .units{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .unit{
+    position:relative;display:block;width:100%;text-align:left;cursor:pointer;
+    border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#0E2233;
+    padding:0;isolation:isolate;
+    transition:transform .25s cubic-bezier(.2,.7,.3,1),box-shadow .25s ease,border-color .2s ease;
+  }
+  .unit:hover{transform:translateY(-3px);box-shadow:0 14px 26px -18px rgba(14,34,51,.55);}
+  .unit:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+  .unit .ph{position:relative;height:118px;overflow:hidden;}
+  .unit .ph img{width:100%;height:100%;object-fit:cover;filter:saturate(.85) contrast(1.05);transform:scale(1.02);transition:transform .6s ease,filter .4s ease;}
+  .unit:hover .ph img{transform:scale(1.1);filter:saturate(1) contrast(1.08);}
+  .unit .scrim{position:absolute;inset:0;background:linear-gradient(105deg,rgba(14,34,51,.92) 6%,rgba(14,34,51,.62) 46%,rgba(14,34,51,.16) 100%);}
+  .unit .ov{position:absolute;inset:0;padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;}
+  .unit .code{font-family:'Archivo',sans-serif;font-weight:900;font-size:26px;letter-spacing:.02em;color:#fff;line-height:1;}
+  .unit .sub{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.17em;text-transform:uppercase;color:rgba(255,255,255,.82);margin-top:4px;}
+  .unit .arrow{position:absolute;right:12px;top:12px;width:26px;height:26px;color:#fff;opacity:.85;transition:transform .28s ease;}
+  .unit:hover .arrow{transform:translateX(5px);}
+  .unit .foot{background:#fff;padding:9px 13px 11px;}
+  .unit .foot .row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+  .unit .foot .big{font-family:'Archivo',sans-serif;font-weight:800;font-size:16px;}
+  .unit .foot .big em{font-style:normal;font-size:11px;color:var(--mid);font-weight:600;}
+  .meter{height:5px;background:#E7ECF1;border-radius:1px;overflow:hidden;margin-top:8px;}
+  .meter i{display:block;height:100%;width:0;background:var(--run);transition:width .8s cubic-bezier(.2,.7,.3,1);}
+  .unit.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 16px 28px -18px rgba(255,106,19,.7);}
+  .unit.on .scrim{background:linear-gradient(105deg,rgba(255,106,19,.92) 6%,rgba(255,106,19,.55) 48%,rgba(14,34,51,.18) 100%);}
+
+  /* ============ KPI INSTRUMENT STRIP ============ */
+  .strip{background:#fff;border:2px solid var(--ink);border-radius:3px;overflow:hidden;}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);}
+  .kpi{padding:15px 18px 13px;border-left:1px solid var(--line);position:relative;overflow:hidden;}
+  .kpi:first-child{border-left:0;}
+  .kpi::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--kc,var(--ink));}
+  .kpi .top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .kpi .top svg{width:19px;height:19px;color:var(--kc,var(--ink));opacity:.9;}
+  .kpi .num{
+    font-family:'Archivo',sans-serif;font-weight:800;line-height:.92;
+    font-size:clamp(2.15rem,4.4vw,3.55rem);letter-spacing:-.022em;font-variant-numeric:tabular-nums;
+    margin:6px 0 4px;color:var(--ink);
+  }
+  .kpi .sub{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:var(--mid);text-transform:uppercase;}
+  .kpi .sub b{color:var(--kc,var(--ink));font-weight:600;}
+  .kpi .num .pctsign{font-size:.4em;color:var(--kc,var(--ink));margin-left:5px;vertical-align:.62em;letter-spacing:.01em;}
+  .shimmer{position:absolute;top:0;bottom:0;width:38%;left:-40%;background:linear-gradient(90deg,transparent,rgba(255,106,19,.11),transparent);animation:sweep 7s linear infinite;}
+  @keyframes sweep{0%{left:-45%}55%{left:120%}100%{left:120%}}
+
+  .avail{border-top:1px solid var(--line);padding:13px 18px 15px;background:#FAFBFC;}
+  .avail .row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:9px;}
+  .avail .pct{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--mid);}
+  .bar{height:26px;display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden;background:#EEF2F5;}
+  .bar span{height:100%;width:0;transition:width .75s cubic-bezier(.2,.7,.3,1);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .bar span+span{border-left:1px solid rgba(255,255,255,.75);}
+  .bar .s-run{background:var(--run);}
+  .bar .s-stop{background:var(--stop);}
+  .bar b{font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.14em;color:#fff;white-space:nowrap;}
+  .scope{display:flex;gap:0;border:1px solid var(--line);border-radius:2px;overflow:hidden;}
+  .scope button{
+    border:0;background:#fff;padding:6px 11px;cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--mid);
+    transition:background .18s ease,color .18s ease;
+  }
+  .scope button+button{border-left:1px solid var(--line);}
+  .scope button.on{background:var(--ink);color:#fff;}
+  .scope button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+
+  /* ============ TOOLBAR ============ */
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:0 0 14px;}
+  .chip-f{
+    border:1px solid var(--line);background:#fff;border-radius:2px;cursor:pointer;
+    padding:7px 12px;display:inline-flex;align-items:center;gap:7px;
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);
+    transition:all .18s ease;
+  }
+  .chip-f i{width:8px;height:8px;border-radius:50%;background:currentColor;}
+  .chip-f:hover{border-color:var(--ink);color:var(--ink);transform:translateY(-1px);}
+  .chip-f.on{background:var(--ink);color:#fff !important;border-color:var(--ink);}
+  .chip-f.on i{box-shadow:0 0 0 2px rgba(255,255,255,.28);}
+  .chip-f:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .chip-f .n{opacity:.7;}
+  .search{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:2px;padding:6px 11px;min-width:220px;}
+  .search svg{width:15px;height:15px;color:var(--mid);}
+  .search input{border:0;outline:0;background:transparent;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--ink);width:100%;}
+  .search input::placeholder{color:#9AA9B6;letter-spacing:.1em;text-transform:uppercase;font-size:9.5px;}
+
+  /* ============ BOARD LAYOUT ============ */
+  .board{display:grid;grid-template-columns:minmax(0,1fr) 306px;gap:16px;align-items:start;}
+
+  .floor{margin-bottom:20px;}
+  .floor-head{display:flex;align-items:center;gap:11px;border-top:2px solid var(--ink);padding-top:8px;margin-bottom:11px;}
+  .floor-head .n{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:.14em;}
+  .floor-head h3{margin:0;font-family:'Archivo',sans-serif;font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;}
+  .floor-head .r{flex:1;height:1px;background:var(--line);}
+  .floor-head .c{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;color:var(--mid);text-transform:uppercase;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:9px;}
+  .mch{
+    position:relative;background:#fff;border:1px solid var(--line);border-radius:2px;
+    padding:9px 11px 10px 15px;overflow:hidden;min-height:104px;
+    display:flex;flex-direction:column;gap:5px;
+    opacity:0;transform:translateY(8px);animation:rise .42s cubic-bezier(.2,.7,.3,1) forwards;
+    animation-delay:calc(var(--i,0) * 17ms);
+    transition:border-color .25s ease,box-shadow .25s ease,transform .25s ease;
+  }
+  @keyframes rise{to{opacity:1;transform:translateY(0);}}
+  .mch:hover{transform:translateY(-2px);box-shadow:0 12px 22px -16px rgba(14,34,51,.6);border-color:var(--ink);}
+  .mch::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--st);}
+  .mch .r1{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .mch .id{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.1em;color:var(--mid);}
+  .mch .dot{width:8px;height:8px;border-radius:50%;background:var(--st);position:relative;flex:none;}
+  .mch[data-status="run"] .dot::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px solid var(--st);animation:ring 2.1s ease-out infinite;}
+  .mch h4{margin:0;font-family:'Archivo',sans-serif;font-size:14px;font-weight:700;letter-spacing:-.005em;line-height:1.1;}
+  .mch .st{font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;color:var(--stx);}
+  .mch .meta{margin-top:auto;display:flex;gap:8px;border-top:1px solid var(--line);padding-top:6px;}
+  .mch .meta div{flex:1;min-width:0;}
+  .mch .meta .k{display:block;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.12em;color:#64798A;text-transform:uppercase;}
+  .mch .meta .v{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mch .load{height:3px;background:#EBEFF3;border-radius:1px;overflow:hidden;}
+  .mch .load i{display:block;height:100%;background:var(--st);transition:width .6s ease;}
+  .mch[data-status="run"]{--st:var(--run);--stx:var(--run-t);background:linear-gradient(180deg,rgba(22,163,74,.055),rgba(22,163,74,0) 55%),#fff;}
+  .mch[data-status="stop"]{--st:var(--stop);--stx:var(--stop-t);background:linear-gradient(180deg,rgba(217,45,32,.07),rgba(217,45,32,0) 55%),#fff;}
+  /* Breakdown + Preventive-maintenance states removed by request — machines are Running or Stop only */
+  .mch.flash::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(115deg,transparent 20%,rgba(255,255,255,.85) 46%,transparent 72%);
+    transform:translateX(-110%);animation:flashsweep .85s ease-out 1;
+  }
+  @keyframes flashsweep{to{transform:translateX(115%);}}
+  .empty{
+    border:1px dashed var(--line);background:#fff;padding:34px 18px;text-align:center;color:var(--mid);
+  }
+  .empty strong{display:block;font-family:'Archivo',sans-serif;font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);margin-bottom:6px;}
+
+  /* ============ EVENT FEED ============ */
+  .feed{background:#fff;border:1px solid var(--line);border-radius:3px;position:sticky;top:82px;}
+  .feed .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;border-bottom:2px solid var(--ink);}
+  .feed .hd h3{margin:0;font-family:'Archivo',sans-serif;font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;}
+  .feed ul{list-style:none;margin:0;padding:0;max-height:520px;overflow:hidden;}
+  .feed li{
+    display:grid;grid-template-columns:58px 1fr;gap:9px;padding:9px 13px;border-bottom:1px solid var(--line);
+    animation:drop .45s cubic-bezier(.2,.7,.3,1) both;
+  }
+  @keyframes drop{from{opacity:0;transform:translateY(-7px);}to{opacity:1;transform:translateY(0);}}
+  .feed li .t{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#64798A;letter-spacing:.04em;padding-top:1px;}
+  .feed li .b{min-width:0;}
+  .feed li .b .m{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;}
+  .feed li .b .d{font-size:10.5px;color:var(--mid);line-height:1.35;margin-top:2px;}
+  .feed li .b .tag{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.12em;padding:1px 5px;border-radius:1px;margin-top:4px;text-transform:uppercase;}
+  .feed .ft{padding:9px 13px;border-top:1px solid var(--line);background:#FAFBFC;}
+
+  /* ============ STATUS LEGEND PANEL (bottom band) ============ */
+  .legend-panel{background:#fff;border:1px solid var(--line);border-radius:3px;}
+  .legend-panel .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;border-bottom:2px solid var(--ink);}
+  .legend-panel h3{margin:0;font-family:'Archivo',sans-serif;font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;}
+  .legend-row{display:flex;align-items:center;gap:13px;padding:14px 13px;border-bottom:1px solid var(--line);}
+  .legend-row:last-child{border-bottom:0;}
+  .legend-swatch{width:40px;height:40px;border-radius:2px;flex:none;display:flex;align-items:center;justify-content:center;}
+  .legend-swatch i{width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.32);}
+  .legend-row .t{font-family:'Archivo',sans-serif;font-size:13px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;}
+  .legend-row .d{font-size:10.5px;color:var(--mid);line-height:1.45;margin-top:3px;max-width:44ch;}
+  .legend-row .n{margin-left:auto;font-family:'Archivo',sans-serif;font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;}
+
+  /* ============ TOP-BAR MODULE BUTTONS (Admin / PPE) ============ */
+  .tb-right{flex-wrap:wrap;justify-content:flex-end;}
+  .navbtns{display:flex;gap:8px;}
+  .navbtn{
+    display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border-radius:2px;cursor:pointer;
+    font-family:'Archivo',sans-serif;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+    white-space:nowrap;
+    transition:transform .18s ease,box-shadow .18s ease,background .18s ease;
+  }
+  .navbtn svg{width:17px;height:17px;}
+  .navbtn.admin{background:var(--ink);color:#fff;border:1px solid var(--ink);}
+  .navbtn.admin:hover{background:#1B3A54;transform:translateY(-2px);box-shadow:0 11px 20px -13px rgba(14,34,51,.9);}
+  .navbtn.ppe{background:var(--accent);color:#fff;border:1px solid var(--accent);}
+  .navbtn.ppe:hover{background:#E85B0C;transform:translateY(-2px);box-shadow:0 11px 20px -13px rgba(255,106,19,.9);}
+  .navbtn.on{transform:translateY(1px);box-shadow:inset 0 3px 0 rgba(0,0,0,.28);}
+  .navbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+
+  /* ============ IN-PAGE MODULE VIEWS ============ */
+  [hidden]{display:none !important;}
+  .viewbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:2px 0 4px;}
+  .back{
+    display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:2px;
+    padding:9px 14px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:10px;
+    letter-spacing:.13em;text-transform:uppercase;color:var(--mid);
+    transition:all .18s ease;
+  }
+  .back svg{width:15px;height:15px;}
+  .back:hover{border-color:var(--ink);color:var(--ink);transform:translateX(-3px);}
+  .back:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+  .kpis.four{grid-template-columns:repeat(auto-fit,minmax(198px,1fr));}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:3px;}
+  .duo-wrap{display:grid;gap:16px;align-items:start;}
+  .duo-wrap .stack{grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:900px){ .duo-wrap .stack{grid-template-columns:1fr;} }
+  .panel .hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;border-bottom:2px solid var(--ink);}
+  .panel .hd h3{margin:0;font-family:'Archivo',sans-serif;font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;}
+  .stack{display:grid;gap:16px;align-content:start;}
+
+  .table-wrap{overflow-x:auto;}
+  table.dt{width:100%;border-collapse:collapse;min-width:620px;}
+  .dt th{
+    font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--mid);text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);background:#FAFBFC;white-space:nowrap;
+  }
+  .dt td{padding:11px 13px;border-bottom:1px solid var(--line);font-size:11.5px;vertical-align:middle;}
+  .dt tbody tr:last-child td{border-bottom:0;}
+  .dt tbody tr:hover{background:#F7F9FB;}
+  .dt td.mono{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.05em;}
+  .dt td.name{font-family:'Archivo',sans-serif;font-weight:700;font-size:12.5px;}
+  .pill{
+    display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:600;
+    letter-spacing:.13em;text-transform:uppercase;padding:3px 7px;border-radius:1px;white-space:nowrap;
+  }
+  .pill.ok{background:rgba(22,163,74,.12);color:var(--run-t);border:1px solid rgba(22,163,74,.35);}
+  .pill.warn{background:rgba(255,106,19,.13);color:#B8490B;border:1px solid rgba(255,106,19,.38);}
+  .pill.bad{background:rgba(217,45,32,.10);color:var(--stop-t);border:1px solid rgba(217,45,32,.32);}
+  .pill.mute{background:#EEF2F5;color:var(--mid);border:1px solid var(--line);}
+  .mbar{height:6px;background:#EBEFF3;border-radius:1px;overflow:hidden;min-width:86px;}
+  .mbar i{display:block;height:100%;background:var(--run);transition:width .6s ease;}
+  .mbar i.low{background:var(--stop);}
+  .mbar i.mid{background:var(--accent);}
+
+  .acts{padding:2px 0;}
+  .act{
+    width:100%;display:flex;align-items:center;gap:10px;background:#fff;border:0;border-bottom:1px solid var(--line);
+    padding:11px 13px;cursor:pointer;text-align:left;transition:background .18s ease;
+  }
+  .act:last-child{border-bottom:0;}
+  .act:hover{background:#F7F9FB;}
+  .act svg{width:17px;height:17px;color:var(--mid);flex:none;}
+  .act span{font-family:'Archivo',sans-serif;font-size:12px;font-weight:700;letter-spacing:.03em;}
+  .act em{margin-left:auto;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--mid);}
+  .act.danger span{color:var(--stop-t);}
+  .act.danger svg{color:var(--stop);}
+  .act.danger:hover{background:rgba(217,45,32,.05);}
+  .kv{padding:2px 0;}
+  .kv .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 13px;border-bottom:1px solid var(--line);}
+  .kv .row:last-child{border-bottom:0;}
+  .kv .k{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);}
+  .kv .v{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;}
+  .vrow{display:flex;gap:10px;padding:11px 13px;border-bottom:1px solid var(--line);align-items:flex-start;}
+  .vrow:last-child{border-bottom:0;}
+  .vrow .t{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#64798A;flex:none;width:42px;padding-top:1px;}
+  .vrow .z{font-family:'Archivo',sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.02em;}
+  .vrow .d{font-size:10.5px;color:var(--mid);margin-top:2px;line-height:1.45;}
+
+  /* ============ SAFETY INTERLOCK CHECKLIST (Admin Control) ============ */
+  .saudit{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+  .sel{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink);border:1px solid var(--line);background:#fff;border-radius:2px;padding:7px 9px;cursor:pointer;
+  }
+  .sel:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .sbar{padding:13px 13px 3px;}
+  .chk{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+  .srow{display:flex;align-items:center;gap:12px;padding:13px;border-bottom:1px solid var(--line);}
+  .srow:nth-child(odd){border-right:1px solid var(--line);}
+  .srow .n{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.12em;flex:none;}
+  .srow .txt{flex:1;min-width:0;}
+  .srow .t{font-family:'Archivo',sans-serif;font-size:12.5px;font-weight:700;letter-spacing:.02em;}
+  .srow .d{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.05em;color:var(--mid);margin-top:3px;line-height:1.5;}
+  .sw{
+    width:46px;height:24px;border-radius:2px;border:1px solid var(--line);background:#EEF2F5;
+    position:relative;cursor:pointer;flex:none;transition:background .22s ease,border-color .22s ease;
+  }
+  .sw::after{
+    content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:1px;background:#fff;
+    box-shadow:0 1px 3px rgba(14,34,51,.32);transition:transform .22s cubic-bezier(.2,.7,.3,1);
+  }
+  .sw[aria-checked="true"]{background:var(--run);border-color:var(--run);}
+  .sw[aria-checked="true"]::after{transform:translateX(22px);}
+  .sw[aria-checked="false"]{background:var(--stop);border-color:var(--stop);}
+  .sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  @media (max-width:760px){
+    .chk{grid-template-columns:1fr;}
+    .srow:nth-child(odd){border-right:0;}
+  }
+
+  footer.foot{margin-top:30px;border-top:2px solid var(--ink);padding-top:12px;display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center;}
+  footer.foot p{margin:0;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--mid);}
+
+  @media (max-width:1320px){
+    .board{grid-template-columns:1fr;}
+    .feed{position:static;}
+    .feed ul{max-height:280px;}
+  }
+  @media (max-width:1080px){
+    .rail{position:static;width:100%;flex-direction:row;height:auto;border-right:0;border-bottom:2px solid var(--ink);padding:6px 10px;}
+    .rail button{flex:1;height:42px;}
+    .rail button:hover{transform:translateY(-2px);}
+    .shell{margin-left:0;}
+    .units{grid-template-columns:repeat(2,1fr);}
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .kpi{border-top:1px solid var(--line);}
+    .kpi:nth-child(-n+2){border-top:0;}
+    .kpi:nth-child(odd){border-left:0;}
+  }
+  @media (max-width:640px){
+    .topbar{flex-direction:column;align-items:flex-start;gap:10px;}
+    .tb-right{flex-wrap:wrap;width:100%;}
+    .tb-title h1{font-size:16px;white-space:normal;}
+    .units{grid-template-columns:1fr;}
+    .kpis{grid-template-columns:1fr;}
+    .kpi{border-left:0;}
+    .search{margin-left:0;width:100%;}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(136px,1fr));}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+    .mch{opacity:1;transform:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="tb-left">
+    <svg class="mark" viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 2 43 13v22L24 46 5 35V13z" fill="#0E2233"/>
+      <path d="M24 7.2 38.6 15.6v16.8L24 40.8 9.4 32.4V15.6z" fill="none" stroke="#FF6A13" stroke-width="1.6"/>
+      <circle cx="24" cy="24" r="6.4" fill="none" stroke="#fff" stroke-width="1.8"/>
+      <g stroke="#fff" stroke-width="1.8" stroke-linecap="round">
+        <path d="M24 12.4v3.4M24 32.2v3.4M12.4 24h3.4M32.2 24h3.4M15.8 15.8l2.4 2.4M29.8 29.8l2.4 2.4M32.2 15.8l-2.4 2.4M18.2 29.8l-2.4 2.4"/>
+      </g>
+    </svg>
+    <div class="tb-title">
+      <h1>Engineering Control Dashboard</h1>
+      <p>Monitor &nbsp;·&nbsp; Control &nbsp;·&nbsp; Optimize</p>
+    </div>
+  </div>
+  <div class="tb-right">
+    <div class="navbtns">
+      <button class="navbtn admin" data-view="admin" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2.8 20 6v6c0 5-3.4 8-8 9.2C7.4 20 4 17 4 12V6z"/><circle cx="12" cy="11.6" r="2.5"/><path d="M12 9.1V7.6M12 15.6v-1.5M14.5 11.6h1.5M7.9 11.6h1.5"/></svg>
+        <span>Admin Control</span>
+      </button>
+      <button class="navbtn ppe" data-view="ppe" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 17.2h18M5.2 17.2v-2.1a6.8 6.8 0 0 1 13.6 0v2.1"/><path d="M9.4 8.6V4.9h5.2v3.7"/><path d="M12 8.6v-3.7"/></svg>
+        <span>PPE Control</span>
+      </button>
+    </div>
+    <div class="chip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 21h18M4 21V10l6 3.5V10l6 3.5V6h4v15"/><path d="M7.5 17.5h2M11.5 17.5h2M15.5 17.5h2"/></svg>
+      <div><span class="lbl">Plant 1</span><strong>PRODUCTION UNIT</strong></div>
+    </div>
+    <div class="clock">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="1.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      <div>
+        <div class="cdate" id="cDate">—</div>
+        <div class="ctime" id="cTime">--:--:--</div>
+      </div>
+    </div>
+    <div class="online"><i class="pulse"></i>SYSTEM ONLINE</div>
+  </div>
+</header>
+
+<nav class="rail" aria-label="Primary">
+  <button class="active" title="Home" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 11 12 3l9 8"/><path d="M5.5 9.6V21h13V9.6"/><path d="M10 21v-6h4v6"/></svg><span>HOME</span></button>
+  <button title="Overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><span>OVRVW</span></button>
+  <button title="Alarms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg><span>ALARMS</span></button>
+  <button title="Reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 20V9M10 20V4M16 20v-8M22 20H2"/></svg><span>RPTS</span></button>
+  <button title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M21.5 12h-3M5.5 12h-3M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1M18.7 18.7l-2.1-2.1M7.4 7.4 5.3 5.3"/></svg><span>SET</span></button>
+</nav>
+
+<div class="shell">
+<div class="wrap">
+
+  <div id="view-dashboard">
+
+  <!-- 01 · UNITS -->
+  <div class="sec-head">
+    <span class="sec-num">01</span>
+    <h2>Production Units</h2>
+    <div class="sec-rule"></div>
+    <span class="sec-meta">Select unit to inspect floor plan</span>
+  </div>
+
+  <div class="units" id="units">
+    <button class="unit on" data-cat="dp" aria-pressed="true">
+      <div class="ph">
+        <img src="https://images.pexels.com/photos/34222005/pexels-photo-34222005.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200" alt="Robotic line producing domestic products">
+        <div class="scrim"></div>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+        <div class="ov">
+          <div>
+            <div class="code">DP</div>
+            <div class="sub">Domestic Products</div>
+          </div>
+          <div class="sub" style="letter-spacing:.14em">4 floors · 70 assets</div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="row">
+          <div class="big"><span data-unit-run="dp">0</span><em> / 70 running</em></div>
+          <div class="lbl" data-unit-pct="dp">0%</div>
+        </div>
+        <div class="meter"><i data-unit-bar="dp"></i></div>
+      </div>
+    </button>
+
+    <button class="unit" data-cat="ewa" aria-pressed="false">
+      <div class="ph">
+        <img src="https://images.pexels.com/photos/5023565/pexels-photo-5023565.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200" alt="Electrical wiring harness assembly">
+        <div class="scrim"></div>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+        <div class="ov">
+          <div>
+            <div class="code">EWA</div>
+            <div class="sub">Electrical Wiring Assembly</div>
+          </div>
+          <div class="sub" style="letter-spacing:.14em">3 lines · 30 assets</div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="row">
+          <div class="big"><span data-unit-run="ewa">0</span><em> / 30 running</em></div>
+          <div class="lbl" data-unit-pct="ewa">0%</div>
+        </div>
+        <div class="meter"><i data-unit-bar="ewa"></i></div>
+      </div>
+    </button>
+
+    <button class="unit" data-cat="mld" aria-pressed="false">
+      <div class="ph">
+        <img src="https://images.pexels.com/photos/34718928/pexels-photo-34718928.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200" alt="Metal moulds in a tooling warehouse">
+        <div class="scrim"></div>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+        <div class="ov">
+          <div>
+            <div class="code">Mlding</div>
+            <div class="sub">Molding</div>
+          </div>
+          <div class="sub" style="letter-spacing:.14em">3 halls · 42 assets</div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="row">
+          <div class="big"><span data-unit-run="mld">0</span><em> / 42 running</em></div>
+          <div class="lbl" data-unit-pct="mld">0%</div>
+        </div>
+        <div class="meter"><i data-unit-bar="mld"></i></div>
+      </div>
+    </button>
+
+    <button class="unit" data-cat="prs" aria-pressed="false">
+      <div class="ph">
+        <img src="https://images.pexels.com/photos/18569742/pexels-photo-18569742.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200" alt="Large steel stamping press in the press shop">
+        <div class="scrim"></div>
+        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
+        <div class="ov">
+          <div>
+            <div class="code">PressShop</div>
+            <div class="sub">Press Shop</div>
+          </div>
+          <div class="sub" style="letter-spacing:.14em">3 lines · 31 assets</div>
+        </div>
+      </div>
+      <div class="foot">
+        <div class="row">
+          <div class="big"><span data-unit-run="prs">0</span><em> / 31 running</em></div>
+          <div class="lbl" data-unit-pct="prs">0%</div>
+        </div>
+        <div class="meter"><i data-unit-bar="prs"></i></div>
+      </div>
+    </button>
+  </div>
+
+  <!-- 02 · KPI STRIP -->
+  <div class="sec-head">
+    <span class="sec-num">02</span>
+    <h2>Live Status Summary</h2>
+    <div class="sec-rule"></div>
+    <span class="sec-meta" id="scopeLabel">All units · 173 assets</span>
+  </div>
+
+  <div class="strip">
+    <div class="kpis">
+      <div class="kpi" style="--kc:#0E2233">
+        <div class="shimmer"></div>
+        <div class="top">
+          <span class="lbl">Total Machines</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="14" rx="1.5"/><path d="M7 8h4M7 12h4M15 8h2M15 12h2M8 18v3M16 18v3"/></svg>
+        </div>
+        <div class="num" id="kTotal" data-val="0">0</div>
+        <div class="sub">Registered assets · <b id="kTotalSub">4 units</b></div>
+      </div>
+      <div class="kpi" style="--kc:#16A34A">
+        <div class="shimmer"></div>
+        <div class="top">
+          <span class="lbl">Total Running</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l6 3.5-6 3.5z"/></svg>
+        </div>
+        <div class="num" id="kRun" data-val="0">0</div>
+        <div class="sub">Share of total · <b id="kRunSub">0%</b></div>
+      </div>
+      <div class="kpi" style="--kc:#D92D20">
+        <div class="shimmer"></div>
+        <div class="top">
+          <span class="lbl">Total Stop</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="16" height="16" rx="1.5"/><rect x="9" y="9" width="6" height="6"/></svg>
+        </div>
+        <div class="num" id="kStop" data-val="0">0</div>
+        <div class="sub">Idle / no material · <b id="kStopSub">0%</b></div>
+      </div>
+      <div class="kpi" style="--kc:#FF6A13">
+        <div class="shimmer"></div>
+        <div class="top">
+          <span class="lbl">Adherence</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><path d="M12 12l6.4-6.4"/></svg>
+        </div>
+        <div class="num"><span id="kAdh" data-val="0">0.0</span><span class="pctsign">%</span></div>
+        <div class="sub">Running / total · <b id="kAdhSub">live</b></div>
+      </div>
+    </div>
+
+    <div class="avail">
+      <div class="row">
+        <span class="lbl">Machine status distribution · live</span>
+        <span class="pct" id="availPct">0 assets</span>
+      </div>
+      <div class="bar" role="img" aria-label="Status distribution">
+        <span class="s-run" id="segRun"><b id="segRunLabel">RUNNING</b></span>
+        <span class="s-stop" id="segStop"><b id="segStopLabel">STOP</b></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 · MACHINE GRID -->
+  <div class="sec-head">
+    <span class="sec-num">03</span>
+    <h2 id="boardTitle">DP · Machine Status Board</h2>
+    <div class="sec-rule"></div>
+    <span class="sec-meta" id="boardMeta">Live · updates every 2.6 s</span>
+  </div>
+
+  <div class="toolbar">
+    <button class="chip-f on" data-filter="all">All <span class="n" data-count="all">0</span></button>
+    <button class="chip-f" data-filter="run" style="color:var(--run-t)"><i style="background:var(--run)"></i>Running <span class="n" data-count="run">0</span></button>
+    <button class="chip-f" data-filter="stop" style="color:var(--stop-t)"><i style="background:var(--stop)"></i>Stop <span class="n" data-count="stop">0</span></button>
+    <label class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input id="q" type="search" placeholder="Search machine id / name" aria-label="Search machines">
+    </label>
+  </div>
+
+  <div id="gridHost"></div>
+
+  <!-- 04 · LIVE FEED + STATUS LEGEND (moved to the bottom) -->
+  <div class="sec-head">
+    <span class="sec-num">04</span>
+    <h2>Live Feed & Status Legend</h2>
+    <div class="sec-rule"></div>
+    <span class="sec-meta">Plant 1 · all units</span>
+  </div>
+
+  <div class="board">
+    <aside class="feed">
+      <div class="hd">
+        <h3>Live Event Log</h3>
+        <span class="lbl" id="feedCount">0 events</span>
+      </div>
+      <ul id="feed" aria-live="polite"></ul>
+      <div class="ft"><span class="lbl">Auto-refresh · OPC-UA simulation feed</span></div>
+    </aside>
+
+    <div class="legend-panel">
+      <div class="hd">
+        <h3>Status Legend</h3>
+        <span class="lbl">ISO signal colours</span>
+      </div>
+      <div class="legend-row">
+        <div class="legend-swatch" style="background:var(--run)"><i></i></div>
+        <div>
+          <div class="t" style="color:var(--run-t)">Running</div>
+          <div class="d">Machine is cycling and producing parts inside the target cycle time.</div>
+        </div>
+        <div class="n" id="lgRun">0</div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-swatch" style="background:var(--stop)"><i></i></div>
+        <div>
+          <div class="t" style="color:var(--stop-t)">Stop</div>
+          <div class="d">Machine is idle, blocked, awaiting material or held by the operator.</div>
+        </div>
+        <div class="n" id="lgStop">0</div>
+      </div>
+      <div class="legend-row">
+        <div class="legend-swatch" style="background:#0E2233"><i></i></div>
+        <div>
+          <div class="t">Tile spine</div>
+          <div class="d">The coloured bar on the left edge of every machine tile repeats its live state.</div>
+        </div>
+        <div class="n" id="lgAll">0</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <p>Engineering Control Dashboard · Rev 4.2 · Plant 1 — Production Unit</p>
+    <p>Legend — Running <span style="color:var(--run-t)">■</span> Stop <span style="color:var(--stop-t)">■</span></p>
+    <p id="lastSync">Last sync —</p>
+  </footer>
+
+  </div><!-- /#view-dashboard -->
+
+  <!-- ===================== ADMIN CONTROL (same page) ===================== -->
+  <section id="view-admin" class="view" hidden>
+    <div class="viewbar">
+      <button class="back" data-view="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12H5M11 6l-6 6 6 6"/></svg>
+        Return to dashboard
+      </button>
+      <span class="lbl">Module open in this page · signed in as AD-1004 · Plant 1</span>
+    </div>
+
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2>Admin Control Console</h2>
+      <div class="sec-rule"></div>
+      <span class="sec-meta">Restricted · plant administrators only</span>
+    </div>
+
+    <div class="strip">
+      <div class="kpis four">
+        <div class="kpi" style="--kc:#0E2233">
+          <div class="shimmer"></div>
+          <div class="top">
+            <span class="lbl">Registered Users</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3.4"/><path d="M3 20c0-3.3 2.7-5.4 6-5.4s6 2.1 6 5.4"/><path d="M16.2 11.2a3 3 0 0 0 0-5.9M17 20c0-2.2-.7-3.8-1.9-4.9"/></svg>
+          </div>
+          <div class="num">48</div>
+          <div class="sub">6 roles · <b>4 units</b></div>
+        </div>
+        <div class="kpi" style="--kc:#16A34A">
+          <div class="shimmer"></div>
+          <div class="top">
+            <span class="lbl">Active Sessions</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <div class="num">12</div>
+          <div class="sub">Terminals live · <b>now</b></div>
+        </div>
+        <div class="kpi" style="--kc:#FF6A13">
+          <div class="shimmer"></div>
+          <div class="top">
+            <span class="lbl">Pending Approvals</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7.4V12l3.2 2"/></svg>
+          </div>
+          <div class="num">3</div>
+          <div class="sub">Access requests · <b>review</b></div>
+        </div>
+        <div class="kpi" style="--kc:#D92D20">
+          <div class="shimmer"></div>
+          <div class="top">
+            <span class="lbl">Locked Accounts</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8.4 10.5V7.8a3.6 3.6 0 0 1 7.2 0v2.7"/></svg>
+          </div>
+          <div class="num">2</div>
+          <div class="sub">Security · <b>action needed</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <div class="hd">
+        <h3>Machine Safety Interlocks</h3>
+        <div class="saudit">
+          <span class="lbl">Auditing</span>
+          <select class="sel" id="safetyMachine" aria-label="Machine under audit">
+            <option value="PS-014">PS-014 · Press Line A</option>
+            <option value="PS-007">PS-007 · Press Line B</option>
+            <option value="MD-022">MD-022 · Molding Hall 2</option>
+            <option value="DP-031">DP-031 · Second Floor</option>
+            <option value="EW-014">EW-014 · Wiring Line B</option>
+            <option value="DP-002">DP-002 · First Floor</option>
+          </select>
+          <span class="pill ok" id="safetyPill">8 / 8 healthy</span>
+        </div>
+      </div>
+      <div class="sbar"><div class="mbar"><i id="safetyBar" style="width:100%"></i></div></div>
+      <div class="chk" id="safetyList"></div>
+    </div>
+
+    <div class="duo-wrap" style="margin-top:16px">
+      <div class="stack">
+        <div class="panel">
+          <div class="hd"><h3>Master Controls</h3><span class="lbl">Live</span></div>
+          <div class="acts">
+            <button class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6"/><path d="M18 3v4h-4M6 21v-4h4"/></svg><span>Sync PLC nodes</span><em>12 / 12 online</em></button>
+            <button class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 1 1-2.5-5.8"/><path d="M20 4v4h-4"/></svg><span>Reset all counters</span><em>Last 04:00</em></button>
+            <button class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/></svg><span>Backup configuration</span><em>Auto · daily</em></button>
+            <button class="act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v11M8 10.5l4 4 4-4"/><path d="M4 17v3h16v-3"/></svg><span>Export daily report</span><em>PDF · CSV</em></button>
+            <button class="act danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="10.5" width="14" height="10" rx="1.5"/><path d="M8.4 10.5V7.8a3.6 3.6 0 0 1 7.2 0v2.7"/></svg><span>Lock all terminals</span><em>2 keys required</em></button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="hd"><h3>System Parameters</h3><span class="lbl">Read only</span></div>
+          <div class="kv">
+            <div class="row"><span class="k">Cycle time limit</span><span class="v">60.0 s</span></div>
+            <div class="row"><span class="k">Alarm threshold</span><span class="v">3 events</span></div>
+            <div class="row"><span class="k">Auto refresh</span><span class="v">2.6 s</span></div>
+            <div class="row"><span class="k">Data retention</span><span class="v">90 days</span></div>
+            <div class="row"><span class="k">PLC protocol</span><span class="v">OPC-UA</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PPE CONTROL (same page) ===================== -->
+  <section id="view-ppe" class="view" hidden>
+    <div class="viewbar">
+      <button class="back" data-view="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12H5M11 6l-6 6 6 6"/></svg>
+        Return to dashboard
+      </button>
+      <span class="lbl">Module open in this page · safety officer AD-1072 · Plant 1</span>
+    </div>
+
+    <div class="sec-head">
+      <span class="sec-num">06</span>
+      <h2>PPE Control Console</h2>
+      <div class="sec-rule"></div>
+      <span class="sec-meta">Personal protective equipment · zone compliance</span>
+    </div>
+
+    <div class="strip">
+      <div class="kpis four">
+        <div class="kpi" style="--kc:#16A34A">
+          <div class="shimmer"></div>
+          <div class="top">
+            <span class="lbl">PPE Compliance</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2.8 20 6v6c0 5-3.4 8-8 9.2C7.4 20 4 17 4 12V6z"/><path d="M8.8 12.2l2.3 2.3 4.1-4.4"/></svg>
+          </div>
+          <div class="num"><span>94.2</span><span class="pctsign">%</span></div>
+          <div class="sub">Plant average · <b>target 98%</b></div>
+        </div>
+        <div class="kpi" style="--kc:#0E2233">
+          <div class="shimmer"></div>
+          <div class="top">
+            <span class="lbl">PPE Items Tracked</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="13" rx="1.5"/><path d="M3 10h18M9 6V3.5h6V6"/></svg>
+          </div>
+          <div class="num">6</div>
+          <div class="sub">Helmet · eye · hand · foot · <b>+2</b></div>
+        </div>
+        <div class="kpi" style="--kc:#D92D20">
+          <div class="shimmer"></div>
+          <div class="top">
+            <span class="lbl">Violations Today</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3.6 22 20H2z"/><path d="M12 9.5v5M12 17h.01"/></svg>
+          </div>
+          <div class="num">7</div>
+          <div class="sub">4 open · <b>3 closed</b></div>
+        </div>
+        <div class="kpi" style="--kc:#FF6A13">
+          <div class="shimmer"></div>
+          <div class="top">
+            <span class="lbl">Scanners Online</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3"/><path d="M7 12h10"/></svg>
+          </div>
+          <div class="num"><span>87.5</span><span class="pctsign">%</span></div>
+          <div class="sub">7 of 8 gates · <b>1 offline</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="board" style="margin-top:16px">
+      <div class="panel">
+        <div class="hd">
+          <h3>Zone Compliance Matrix</h3>
+          <span class="lbl">9 zones · live scan</span>
+        </div>
+        <div class="table-wrap">
+          <table class="dt">
+            <thead>
+              <tr><th>Zone</th><th>Helmet</th><th>Eye</th><th>Hand</th><th>Foot</th><th>Compliance</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="name">DP · First Floor</td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><div class="mbar"><i style="width:98%"></i></div><span class="mono" style="font-size:9.5px">98%</span></td><td><span class="pill ok">Compliant</span></td></tr>
+              <tr><td class="name">DP · Second Floor</td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill bad">Miss</span></td><td><span class="pill ok">OK</span></td><td><div class="mbar"><i class="mid" style="width:91%"></i></div><span class="mono" style="font-size:9.5px">91%</span></td><td><span class="pill warn">Watch</span></td></tr>
+              <tr><td class="name">DP · Third Floor</td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><div class="mbar"><i style="width:96%"></i></div><span class="mono" style="font-size:9.5px">96%</span></td><td><span class="pill ok">Compliant</span></td></tr>
+              <tr><td class="name">DP · Assembly Bay</td><td><span class="pill ok">OK</span></td><td><span class="pill bad">Miss</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><div class="mbar"><i class="mid" style="width:88%"></i></div><span class="mono" style="font-size:9.5px">88%</span></td><td><span class="pill warn">Watch</span></td></tr>
+              <tr><td class="name">EWA · Wiring Line A</td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><div class="mbar"><i style="width:99%"></i></div><span class="mono" style="font-size:9.5px">99%</span></td><td><span class="pill ok">Compliant</span></td></tr>
+              <tr><td class="name">EWA · Wiring Line B</td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill bad">Miss</span></td><td><div class="mbar"><i class="mid" style="width:93%"></i></div><span class="mono" style="font-size:9.5px">93%</span></td><td><span class="pill warn">Watch</span></td></tr>
+              <tr><td class="name">Molding · Hall 1</td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><div class="mbar"><i style="width:97%"></i></div><span class="mono" style="font-size:9.5px">97%</span></td><td><span class="pill ok">Compliant</span></td></tr>
+              <tr><td class="name">PressShop · Press Line A</td><td><span class="pill bad">Miss</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><div class="mbar"><i class="low" style="width:84%"></i></div><span class="mono" style="font-size:9.5px">84%</span></td><td><span class="pill bad">Action</span></td></tr>
+              <tr><td class="name">PressShop · Die Shop</td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><span class="pill ok">OK</span></td><td><div class="mbar"><i style="width:95%"></i></div><span class="mono" style="font-size:9.5px">95%</span></td><td><span class="pill ok">Compliant</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="panel">
+          <div class="hd"><h3>PPE Station Status</h3><span class="lbl">7 / 8 online</span></div>
+          <div class="kv">
+            <div class="row"><span class="k">Gate A scanner</span><span class="pill ok">Online · 06:24</span></div>
+            <div class="row"><span class="k">Gate B scanner</span><span class="pill ok">Online · 06:24</span></div>
+            <div class="row"><span class="k">Press shop entry</span><span class="pill ok">Online · 06:23</span></div>
+            <div class="row"><span class="k">Molding turnstile</span><span class="pill bad">Offline</span></div>
+            <div class="row"><span class="k">Stores gate</span><span class="pill ok">Online · 06:22</span></div>
+            <div class="row"><span class="k">Canteen corridor</span><span class="pill ok">Online · 06:24</span></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="hd"><h3>Open Violations</h3><span class="lbl">4 open</span></div>
+          <div>
+            <div class="vrow"><span class="t">06:18</span><div><div class="z">PressShop · Press Line A</div><div class="d">Helmet missing · supervisor notified · operator re-briefed</div></div></div>
+            <div class="vrow"><span class="t">06:02</span><div><div class="z">DP · Assembly Bay</div><div class="d">Safety glasses missing · entry blocked at gate A</div></div></div>
+            <div class="vrow"><span class="t">05:47</span><div><div class="z">EWA · Wiring Line B</div><div class="d">Safety shoes missing · verbal warning logged</div></div></div>
+            <div class="vrow"><span class="t">05:31</span><div><div class="z">Molding · Hall 1</div><div class="d">Hand gloves missing · coaching recorded by line supervisor</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- CONFIG ---------------- */
+  var STATUS = {
+    run:  { key:"run",  label:"RUNNING", hex:"#16A34A", tx:"#0F7A37" },
+    stop: { key:"stop", label:"STOP",    hex:"#D92D20", tx:"#B42318" }
+  };
+
+  var CATS = [
+    { id:"dp",  code:"DP",        title:"DP · Machine Status Board",        prefix:"DP", total:70,
+      floors:[{n:"First Floor",c:18},{n:"Second Floor",c:18},{n:"Third Floor",c:17},{n:"Assembly Bay",c:17}] },
+    { id:"ewa", code:"EWA",       title:"EWA · Machine Status Board",       prefix:"EW", total:30,
+      floors:[{n:"Wiring Line A",c:10},{n:"Wiring Line B",c:10},{n:"Harness Bay",c:10}] },
+    { id:"mld", code:"Molding",   title:"Molding · Machine Status Board",   prefix:"MD", total:42,
+      floors:[{n:"Molding Hall 1",c:14},{n:"Molding Hall 2",c:14},{n:"Tool Room",c:14}] },
+    { id:"prs", code:"PressShop", title:"PressShop · Machine Status Board", prefix:"PS", total:31,
+      floors:[{n:"Press Line A",c:11},{n:"Press Line B",c:10},{n:"Die Shop",c:10}] }
+  ];
+
+  var REASONS = {
+    run:  ["Cycle resumed","Material loaded","Fault cleared","Operator restart","Auto-cycle running"],
+    stop: ["Operator stop","Material shortage","Changeover wait","Quality hold","Idle — no demand"]
+  };
+
+  /* ---------------- DATA ---------------- */
+  var machines = [];
+  CATS.forEach(function(cat){
+    var idx = 0;
+    cat.floors.forEach(function(f, fi){
+      for (var i = 0; i < f.c; i++){
+        idx++;
+        var st = pickStatus();
+        machines.push({
+          id: cat.prefix + "-" + pad(idx, 3),
+          name: "Machine-" + idx,
+          cat: cat.id,
+          floor: fi,
+          floorName: f.n,
+          status: st,
+          load: st === "run" ? 52 + Math.round(Math.random()*46) : (st === "pm" ? 0 : Math.round(Math.random()*18)),
+          cycle: st === "run" ? (18 + Math.random()*42).toFixed(1) : "--.-",
+          since: Date.now() - Math.floor(Math.random()*5400000)
+        });
+      }
+    });
+  });
+
+  function pickStatus(){
+    return Math.random() < 0.72 ? "run" : "stop";
+  }
+  function nextStatus(){
+    return Math.random() < 0.62 ? "run" : "stop";
+  }
+  function pad(n, w){ var s = String(n); while (s.length < w) s = "0" + s; return s; }
+
+  var state = { cat:"dp", filter:"all", q:"", events:0 };
+
+  /* ---------------- HELPERS ---------------- */
+  var $  = function(s, r){ return (r || document).querySelector(s); };
+  var $$ = function(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  function fmt(n){ return Number(n).toLocaleString("en-US"); }
+
+  function fmtDec(v, dec){
+    return dec ? Number(v).toFixed(dec) : fmt(Math.round(v));
+  }
+
+  function animateNum(el, to, dec){
+    if (!el) return;
+    dec = dec || 0;
+    var from = parseFloat(el.getAttribute("data-val") || "0");
+    if (from === to){ el.textContent = fmtDec(to, dec); return; }
+    el.setAttribute("data-val", to);
+    var t0 = performance.now(), dur = 420;
+    (function step(t){
+      var p = Math.min(1, (t - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmtDec(from + (to - from) * e, dec);
+      if (p < 1) requestAnimationFrame(step); else el.textContent = fmtDec(to, dec);
+    })(performance.now());
+  }
+
+  function counts(list){
+    var c = { all:list.length, run:0, stop:0 };
+    list.forEach(function(m){ c[m.status]++; });
+    return c;
+  }
+  function catMachines(id){ return machines.filter(function(m){ return m.cat === id; }); }
+
+  /* ---------------- CLOCK ---------------- */
+  function tickClock(){
+    var d = new Date();
+    var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    var mons = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    $("#cDate").textContent = days[d.getDay()] + " " + pad(d.getDate(),2) + " " + mons[d.getMonth()] + " " + d.getFullYear();
+    $("#cTime").textContent = pad(d.getHours(),2) + ":" + pad(d.getMinutes(),2) + ":" + pad(d.getSeconds(),2);
+    $("#lastSync").textContent = "Last sync " + pad(d.getHours(),2) + ":" + pad(d.getMinutes(),2) + ":" + pad(d.getSeconds(),2);
+    // uptime counters
+    $$("[data-since]").forEach(function(el){
+      var s = parseInt(el.getAttribute("data-since"), 10);
+      var sec = Math.max(0, Math.floor((Date.now() - s) / 1000));
+      el.textContent = pad(Math.floor(sec/3600),2) + ":" + pad(Math.floor(sec/60)%60,2) + ":" + pad(sec%60,2);
+    });
+  }
+
+  /* ---------------- KPI STRIP ---------------- */
+  function renderKpi(){
+    var c = counts(machines);
+    var adh = c.all ? (c.run / c.all * 100) : 0;
+    var pct = function(n){ return c.all ? (n / c.all * 100) : 0; };
+
+    animateNum($("#kTotal"), c.all);
+    animateNum($("#kRun"), c.run);
+    animateNum($("#kStop"), c.stop);
+    animateNum($("#kAdh"), adh, 1);
+
+    $("#kTotalSub").textContent = "4 units · 4 categories";
+    $("#kRunSub").textContent  = pct(c.run).toFixed(1) + "% of total";
+    $("#kStopSub").textContent = pct(c.stop).toFixed(1) + "% of total";
+    $("#kAdhSub").textContent  = c.run + " of " + c.all + " running";
+
+    $("#segRun").style.width  = pct(c.run) + "%";
+    $("#segStop").style.width = pct(c.stop) + "%";
+    $("#segRunLabel").textContent  = "RUNNING " + pct(c.run).toFixed(1) + "%";
+    $("#segStopLabel").textContent = "STOP " + pct(c.stop).toFixed(1) + "%";
+
+    $("#availPct").textContent = c.all + " assets · " + c.run + " running · " + adh.toFixed(1) + "% adherence";
+    $("#scopeLabel").textContent = "All units · " + c.all + " assets";
+
+    $("#lgRun").textContent  = fmt(c.run);
+    $("#lgStop").textContent = fmt(c.stop);
+    $("#lgAll").textContent  = fmt(c.all);
+
+    // unit cards
+    CATS.forEach(function(cat){
+      var cc = counts(catMachines(cat.id));
+      var r = $('[data-unit-run="' + cat.id + '"]');
+      var p = $('[data-unit-pct="' + cat.id + '"]');
+      var b = $('[data-unit-bar="' + cat.id + '"]');
+      if (r) r.textContent = cc.run;
+      if (p) p.textContent = (cc.all ? (cc.run / cc.all * 100) : 0).toFixed(0) + "%";
+      if (b) b.style.width = (cc.all ? (cc.run / cc.all * 100) : 0) + "%";
+    });
+  }
+  function codeOf(id){
+    for (var i = 0; i < CATS.length; i++) if (CATS[i].id === id) return CATS[i].code;
+    return id;
+  }
+
+  /* ---------------- GRID ---------------- */
+  function renderGrid(){
+    var cat = CATS.filter(function(c){ return c.id === state.cat; })[0];
+    var list = catMachines(cat.id);
+    var c = counts(list);
+
+    $("#boardTitle").textContent = cat.title;
+    $("#boardMeta").textContent = cat.total + " machines · live · updates every 2.6 s";
+
+    $$(".chip-f").forEach(function(b){
+      var f = b.getAttribute("data-filter");
+      var n = $("[data-count]", b);
+      if (n) n.textContent = f === "all" ? c.all : c[f];
+      b.classList.toggle("on", f === state.filter);
+    });
+
+    var host = $("#gridHost");
+    var q = state.q.trim().toLowerCase();
+    var visible = list.filter(function(m){
+      var okF = state.filter === "all" || m.status === state.filter;
+      var okQ = !q || m.id.toLowerCase().indexOf(q) > -1 || m.name.toLowerCase().indexOf(q) > -1 || m.floorName.toLowerCase().indexOf(q) > -1;
+      return okF && okQ;
+    });
+
+    if (!visible.length){
+      host.innerHTML = '<div class="empty"><strong>No machines match</strong>Adjust the status filter or clear the search field to restore the board.</div>';
+      return;
+    }
+
+    var html = "", counter = 0;
+    cat.floors.forEach(function(f, fi){
+      var rows = visible.filter(function(m){ return m.floor === fi; });
+      if (!rows.length) return;
+      html += '<section class="floor">' +
+        '<div class="floor-head">' +
+          '<span class="n">' + pad(fi + 1, 2) + '</span>' +
+          '<h3>' + cat.code + ' · ' + f.n + '</h3>' +
+          '<div class="r"></div>' +
+          '<span class="c">' + rows.length + ' / ' + f.c + ' machines shown</span>' +
+        '</div><div class="grid">';
+      rows.forEach(function(m){
+        var s = STATUS[m.status];
+        html += '<article class="mch" data-status="' + m.status + '" data-id="' + m.id + '" style="--i:' + (counter++ % 22) + '" ' +
+          'aria-label="' + m.id + ' ' + m.name + ' ' + s.label + '">' +
+          '<div class="r1"><span class="id">' + m.id + '</span><span class="dot"></span></div>' +
+          '<h4>' + m.name + '</h4>' +
+          '<div class="st">' + s.label + '</div>' +
+          '<div class="load"><i style="width:' + m.load + '%"></i></div>' +
+          '<div class="meta">' +
+            '<div><span class="k">Load</span><span class="v">' + m.load + '%</span></div>' +
+            '<div><span class="k">Cycle</span><span class="v">' + m.cycle + 's</span></div>' +
+            '<div><span class="k">Timer</span><span class="v mono" data-since="' + m.since + '">--:--:--</span></div>' +
+          '</div></article>';
+      });
+      html += "</div></section>";
+    });
+    host.innerHTML = html;
+    tickClock();
+  }
+
+  /* ---------------- EVENT FEED ---------------- */
+  function pushEvent(m, from){
+    state.events++;
+    $("#feedCount").textContent = state.events + " events";
+    var s = STATUS[m.status];
+    var reason = REASONS[m.status][Math.floor(Math.random() * REASONS[m.status].length)];
+    var d = new Date();
+    var li = document.createElement("li");
+    li.innerHTML =
+      '<span class="t">' + pad(d.getHours(),2) + ":" + pad(d.getMinutes(),2) + ":" + pad(d.getSeconds(),2) + '</span>' +
+      '<span class="b">' +
+        '<span class="m">' + m.id + '</span>' +
+        '<div class="d">' + reason + ' — ' + m.floorName + '</div>' +
+        '<span class="tag" style="background:' + s.hex + '22;color:' + s.tx + ';border:1px solid ' + s.hex + '66">' +
+          (from ? from + " → " : "") + s.label +
+        '</span>' +
+      '</span>';
+    var ul = $("#feed");
+    ul.insertBefore(li, ul.firstChild);
+    while (ul.children.length > 9) ul.removeChild(ul.lastChild);
+  }
+
+  /* ---------------- LIVE SIMULATION ---------------- */
+  function tick(){
+    var picks = 1 + Math.floor(Math.random() * 2);
+    for (var i = 0; i < picks; i++){
+      var m = machines[Math.floor(Math.random() * machines.length)];
+      var from = STATUS[m.status].label;
+      var ns = nextStatus();
+      if (ns === m.status) continue;
+      m.status = ns;
+      m.since = Date.now();
+      m.load = ns === "run" ? 52 + Math.round(Math.random()*46) : (ns === "pm" ? 0 : Math.round(Math.random()*18));
+      m.cycle = ns === "run" ? (18 + Math.random()*42).toFixed(1) : "--.-";
+
+      var tile = $('.mch[data-id="' + m.id + '"]');
+      if (tile){
+        tile.setAttribute("data-status", m.status);
+        $(".st", tile).textContent = STATUS[m.status].label;
+        $(".load i", tile).style.width = m.load + "%";
+        $$(".meta .v", tile)[0].textContent = m.load + "%";
+        $$(".meta .v", tile)[1].textContent = m.cycle + "s";
+        var t = $("[data-since]", tile);
+        if (t) t.setAttribute("data-since", m.since);
+        tile.classList.remove("flash");
+        void tile.offsetWidth;
+        tile.classList.add("flash");
+        setTimeout(function(el){ return function(){ el.classList.remove("flash"); }; }(tile), 900);
+      }
+      pushEvent(m, from);
+    }
+    renderKpi();
+    updateFilterCounts();
+    tickClock();
+    $("#boardMeta").textContent = codeOf(state.cat) + " · " + countVisible() + " shown · live";
+  }
+
+  function updateFilterCounts(){
+    var c = counts(catMachines(state.cat));
+    $$(".chip-f").forEach(function(b){
+      var f = b.getAttribute("data-filter");
+      var n = $("[data-count]", b);
+      if (n) n.textContent = f === "all" ? c.all : c[f];
+    });
+  }
+  function countVisible(){
+    var n = $$(".mch").length;
+    return n;
+  }
+
+  /* ---------------- WIRING ---------------- */
+  $$(".unit").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      $$(".unit").forEach(function(b){ b.classList.remove("on"); b.setAttribute("aria-pressed","false"); });
+      btn.classList.add("on");
+      btn.setAttribute("aria-pressed","true");
+      state.cat = btn.getAttribute("data-cat");
+      renderGrid();
+      renderKpi();
+    });
+  });
+
+  $$(".chip-f").forEach(function(b){
+    b.addEventListener("click", function(){
+      state.filter = b.getAttribute("data-filter");
+      renderGrid();
+      updateFilterCounts();
+    });
+  });
+
+  $("#q").addEventListener("input", function(e){
+    state.q = e.target.value;
+    renderGrid();
+    updateFilterCounts();
+  });
+
+  $$(".rail button").forEach(function(b){
+    b.addEventListener("click", function(){
+      $$(".rail button").forEach(function(x){ x.classList.remove("active"); });
+      b.classList.add("active");
+    });
+  });
+
+  /* ---------------- MODULE VIEWS (Admin / PPE — same page) ---------------- */
+  function setView(v){
+    state.view = v;
+    ["dashboard","admin","ppe"].forEach(function(k){
+      var el = document.getElementById("view-" + k);
+      if (el) el.hidden = (k !== v);
+    });
+    $$(".navbtn").forEach(function(b){
+      var on = b.getAttribute("data-view") === v;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    if (window.scrollTo) window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  $$("[data-view]").forEach(function(btn){
+    btn.addEventListener("click", function(){ setView(btn.getAttribute("data-view")); });
+  });
+
+  /* ---------------- SAFETY INTERLOCK CHECKLIST (Admin Control) ---------------- */
+  var SAFETY = [
+    { t:"Safety door closed",            tag:"SD-01", d:"Access-door limit switches · monitored continuously" },
+    { t:"Safety guard installed",        tag:"SG-02", d:"Fixed guard on flywheel, belt and coupling side" },
+    { t:"Light curtain healthy",         tag:"LC-03", d:"Type-4 curtain at load / unload point · self-test pass" },
+    { t:"Emergency stop healthy",        tag:"ES-04", d:"All E-stop push buttons latching and monitored" },
+    { t:"Air pressure OK",               tag:"AP-05", d:"Plant air 5.8 – 6.5 bar · pressure switch inside band" },
+    { t:"Electrical panel door OK",      tag:"EP-06", d:"Panel door closed, interlocked, earth strap intact" },
+    { t:"Two hand operation control OK", tag:"TH-07", d:"Two-hand control synchronised inside 0.5 s window" },
+    { t:"Safety mat available",          tag:"SM-08", d:"Safety mat present and clear at the operator station" }
+  ];
+  var safety = { machine:"PS-014", ok:[] };
+
+  function seedSafety(){
+    safety.ok = SAFETY.map(function(){ return Math.random() < 0.88; });
+  }
+  function renderSafety(){
+    var host = $("#safetyList");
+    if (!host) return;
+    var html = "";
+    SAFETY.forEach(function(it, i){
+      var on = safety.ok[i];
+      html += '<div class="srow">' +
+        '<span class="n">' + pad(i + 1, 2) + '</span>' +
+        '<div class="txt"><div class="t">' + it.t + '</div><div class="d">' + it.tag + ' · ' + it.d + '</div></div>' +
+        '<span class="pill ' + (on ? "ok" : "bad") + '" data-pill="' + i + '">' + (on ? "Healthy" : "Fault") + '</span>' +
+        '<button class="sw" role="switch" aria-checked="' + (on ? "true" : "false") + '" data-sw="' + i + '" aria-label="' + it.t + '"></button>' +
+        '</div>';
+    });
+    host.innerHTML = html;
+    updateSafety();
+  }
+  function updateSafety(){
+    var total = SAFETY.length;
+    var good = 0, i;
+    for (i = 0; i < total; i++) if (safety.ok[i]) good++;
+    var pill = $("#safetyPill"), bar = $("#safetyBar");
+    if (pill){
+      pill.textContent = good + " / " + total + " healthy";
+      pill.className = "pill " + (good === total ? "ok" : (good >= total - 2 ? "warn" : "bad"));
+    }
+    if (bar){
+      bar.style.width = (good / total * 100) + "%";
+      bar.className = good === total ? "" : (good >= total - 2 ? "mid" : "low");
+    }
+    $$("[data-sw]").forEach(function(b){
+      var k = parseInt(b.getAttribute("data-sw"), 10);
+      b.setAttribute("aria-checked", safety.ok[k] ? "true" : "false");
+    });
+    $$("[data-pill]").forEach(function(p){
+      var k = parseInt(p.getAttribute("data-pill"), 10);
+      p.className = "pill " + (safety.ok[k] ? "ok" : "bad");
+      p.textContent = safety.ok[k] ? "Healthy" : "Fault";
+    });
+  }
+  function pushSafety(text, ok){
+    var ul = $("#feed");
+    if (!ul) return;
+    state.events++;
+    $("#feedCount").textContent = state.events + " events";
+    var d = new Date();
+    var li = document.createElement("li");
+    li.innerHTML =
+      '<span class="t">' + pad(d.getHours(),2) + ":" + pad(d.getMinutes(),2) + ":" + pad(d.getSeconds(),2) + '</span>' +
+      '<span class="b"><span class="m">' + safety.machine + '</span>' +
+      '<div class="d">' + text + '</div>' +
+      '<span class="tag" style="background:' + (ok ? "#16A34A22" : "#D92D2022") + ';color:' + (ok ? "#0F7A37" : "#B42318") +
+      ';border:1px solid ' + (ok ? "#16A34A66" : "#D92D2066") + '">' + (ok ? "INTERLOCK OK" : "INTERLOCK FAULT") + '</span></span>';
+    ul.insertBefore(li, ul.firstChild);
+    while (ul.children.length > 9) ul.removeChild(ul.lastChild);
+  }
+
+  document.addEventListener("click", function(e){
+    var b = e.target && e.target.closest ? e.target.closest("[data-sw]") : null;
+    if (!b) return;
+    var i = parseInt(b.getAttribute("data-sw"), 10);
+    safety.ok[i] = !safety.ok[i];
+    updateSafety();
+    pushSafety(SAFETY[i].t + (safety.ok[i] ? " · condition verified" : " · condition lost — machine hold requested"), safety.ok[i]);
+  });
+
+  var safetySel = $("#safetyMachine");
+  if (safetySel){
+    safetySel.addEventListener("change", function(){
+      safety.machine = safetySel.value;
+      seedSafety();
+      renderSafety();
+      pushSafety("Safety interlock audit started on " + safety.machine, true);
+    });
+  }
+  seedSafety();
+  renderSafety();
+
+  /* ---------------- BOOT ---------------- */
+  renderGrid();
+  renderKpi();
+  updateFilterCounts();
+  tickClock();
+  for (var i = 0; i < 4; i++){
+    var m = machines[Math.floor(Math.random() * machines.length)];
+    pushEvent(m, null);
+  }
+  setInterval(tickClock, 1000);
+  setInterval(tick, 2600);
+})();
+</script>
+</body>
+</html>
